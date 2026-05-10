@@ -4,13 +4,9 @@ import type { AmlProvider, CheckWalletAmlInput, CheckWalletAmlResult } from "../
 
 export const checkWalletAmlInputSchema = z.object({
   address: z.string().trim().min(8, "Wallet address must contain at least 8 characters."),
-  network: z
-    .enum(["bitcoin", "ethereum", "tron", "ton", "solana", "other"])
-    .default("other")
-    .describe("Blockchain network for the wallet address."),
-  asset: z.string().trim().min(1).optional().describe("Optional asset symbol, for example USDT."),
-  amount: z.number().nonnegative().optional().describe("Optional transaction amount for KYT context."),
-  counterparty: z.string().trim().min(1).optional().describe("Optional counterparty label or ID.")
+  chain: z
+    .enum(["BTC", "ETH", "TRON", "USDT-ERC20", "USDT-TRC20"])
+    .describe("Blockchain or token network for the wallet address.")
 });
 
 export async function checkWalletAml(
@@ -26,7 +22,7 @@ export function registerCheckWalletAmlTool(server: McpServer, provider: AmlProvi
     {
       title: "Check Wallet AML",
       description:
-        "Runs a mock AML/KYT wallet risk check. This scaffold does not call BitOK or any real provider.",
+        "Check crypto wallet address for AML/KYT risk score and source-of-funds analysis. Currently returns mock data; real BitOK integration is planned for v0.2.",
       inputSchema: checkWalletAmlInputSchema
     },
     async (input) => {

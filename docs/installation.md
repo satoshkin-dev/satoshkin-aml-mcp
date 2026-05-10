@@ -6,6 +6,21 @@
 - npm 10 or newer
 - MCP-compatible client that can launch stdio servers
 
+## Claude Desktop / Claude Code
+
+This package is not published to npm yet. Use the public GitHub repository through `npx`:
+
+```json
+{
+  "mcpServers": {
+    "satoshkin-aml": {
+      "command": "npx",
+      "args": ["-y", "github:skhmtp/satoshkin-aml-mcp"]
+    }
+  }
+}
+```
+
 ## Local Setup
 
 ```bash
@@ -16,7 +31,20 @@ npm run build
 npm test
 ```
 
-## Run
+Use the built entrypoint in your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "satoshkin-aml": {
+      "command": "node",
+      "args": ["/absolute/path/to/satoshkin-aml-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+## Run Locally
 
 Development mode:
 
@@ -31,21 +59,6 @@ npm run build
 node dist/index.js
 ```
 
-## MCP Client Example
-
-Use the built entrypoint in your MCP client config:
-
-```json
-{
-  "mcpServers": {
-    "satoshkin-aml-mcp": {
-      "command": "node",
-      "args": ["/absolute/path/to/satoshkin-aml-mcp/dist/index.js"]
-    }
-  }
-}
-```
-
 ## Publishing
 
-This package is private and is not configured for npm publishing or registry submission.
+This package is intentionally marked `"private": true` and is not configured for npm publishing or MCP registry submission in v0.1.0.

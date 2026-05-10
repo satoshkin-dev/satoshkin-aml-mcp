@@ -1,7 +1,7 @@
 {
   "name": "satoshkin-aml-mcp",
   "version": "0.1.0",
-  "description": "TypeScript MCP server scaffold for mock AML/KYT wallet checks.",
+  "description": "MCP server for AML/KYT crypto wallet screening.",
   "license": "MIT",
   "type": "module",
   "private": true,
@@ -19,6 +19,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
+    "prepare": "npm run build",
     "test": "vitest run tests",
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },

@@ -4,19 +4,21 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue.svg)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Status: v0.1 scaffold](https://img.shields.io/badge/status-v0.1%20scaffold-orange.svg)]()
+[![Status: v0.2](https://img.shields.io/badge/status-v0.2%20real%20screening-brightgreen.svg)]()
 
 MCP server for AML/KYT crypto wallet screening. It is designed to connect AI clients such as Claude Desktop, Claude Code, ChatGPT MCP clients, and internal agent tools to Satoshkin wallet risk checks.
 
 This MCP server provides AI assistants with crypto compliance tools for AML (Anti-Money Laundering) and KYT (Know Your Transaction) screening. Compatible with Claude Desktop, Claude Code, and any MCP-compatible client.
 
-The planned BitOK integration will support wallet risk scoring, source-of-funds analysis, sanctions exposure checks, and mixer-related address detection.
+With an API key configured, checks return real BitOK-backed data: risk score 0-100, risk level, source-of-funds tags, activity dates, and volume totals. Without a key the server runs in clearly-labeled mock mode.
 
 ## Status
 
-v0.1.0 is a scaffold with mock checks only.
+v0.2.0 performs real AML/KYT screening through the Satoshkin backend
+(`POST /api-accounts/aml-check`, BitOK data) when `SATOSHKIN_API_KEY` is set.
 
-Real BitOK API integration is planned for v0.2.
+Without an API key the server runs in mock mode: deterministic, clearly-labeled
+placeholder responses that can never be mistaken for a real verdict.
 
 This repository does not contain BitOK credentials, production AML/KYT business logic, user data, or paid-tier enforcement. Those belong in the private backend service.
 
@@ -24,7 +26,8 @@ This repository does not contain BitOK credentials, production AML/KYT business 
 
 ### `check_wallet_aml`
 
-Checks a crypto wallet address for AML/KYT risk. In v0.1.0 this returns deterministic mock metadata only.
+Checks a crypto wallet address for AML/KYT risk. Addresses are validated
+against per-chain formats client-side before any quota is spent.
 
 Input:
 
@@ -43,19 +46,40 @@ Supported `chain` values:
 - `USDT-ERC20`
 - `USDT-TRC20`
 
-Mock output:
+Real output (with `SATOSHKIN_API_KEY`):
 
 ```json
 {
-  "address": "TMockWalletAddress123",
+  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
   "chain": "BTC",
-  "riskScore": "unknown",
-  "status": "mock",
-  "provider": "mock-bitok",
-  "checkedAt": "2026-05-10T00:00:00.000Z",
-  "message": "This is a mock response. Real AML screening via BitOK integration will be available in v0.2."
+  "checked_at": "2026-06-10T12:00:00.000Z",
+  "risk_score": 17,
+  "risk_level": "low",
+  "tags": ["exchange"],
+  "first_activity": "2021-01-01",
+  "last_activity": "2026-06-01",
+  "total_volume_in_usd": "1000.00",
+  "total_volume_out_usd": "900.00",
+  "source": "bitok",
+  "cache_hit": false,
+  "rate_limit": { "remaining": 999, "resets_at": "2026-06-10T13:00:00.000Z" },
+  "balance": { "charged_usd": "0.55", "after_usd": "9.45" }
 }
 ```
+
+Errors come back as structured `isError` payloads with machine-readable codes:
+`unauthorized`, `insufficient_balance`, `rate_limited`, `validation_error`,
+`bitok_upstream_error`, `bitok_timeout`, `upstream_unreachable`.
+
+Results are informational risk indicators, not legal or compliance advice.
+
+## Configuration
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `SATOSHKIN_API_KEY` | _(unset = mock mode)_ | API key `sk_live_*` / `sk_test_*` issued by Satoshkin |
+| `SATOSHKIN_API_BASE_URL` | `https://satoshkin.com` | Backend base URL (staging override) |
+| `SATOSHKIN_TIMEOUT_MS` | `30000` | Request timeout; first-time checks may take several seconds |
 
 ## Claude Desktop / Claude Code
 
@@ -68,11 +92,16 @@ Add this to your MCP settings:
   "mcpServers": {
     "satoshkin-aml": {
       "command": "npx",
-      "args": ["-y", "github:skhmtp/satoshkin-aml-mcp"]
+      "args": ["-y", "github:skhmtp/satoshkin-aml-mcp"],
+      "env": {
+        "SATOSHKIN_API_KEY": "sk_live_your_key_here"
+      }
     }
   }
 }
 ```
+
+Omit the `env` block to run in mock mode.
 
 For local development, use the built entrypoint:
 
@@ -110,26 +139,32 @@ npm run build
 node dist/index.js
 ```
 
-## Full AML/KYT Check Scope Planned For v0.2+
+## Check Scope
 
-- Risk score `0-100`
-- Source-of-funds tags: exchange, mixer, scam, sanctions, darknet, bridge, P2P, gambling
+Shipped in v0.2:
+
+- Risk score `0-100` + risk level (low / medium / high)
+- Source-of-funds tags
 - First and last activity dates
-- Total volume in and out
-- Counterparty and cluster analysis
-- Clear decisions for agent workflows: allow, review, block
-- Rate limits and paid-tier checks through Satoshkin backend authentication
+- Total volume in and out (USD)
+- Per-key rate limiting and billing through Satoshkin backend authentication
+
+Planned next: counterparty and cluster analysis, allow/review/block decisions.
 
 ## Monetization Model
 
 The MCP server is a free open-source connector.
 
-Production checks will require authentication against the Satoshkin AML/KYT service. The backend can enforce free daily limits, paid tiers, API keys, and audit logging without exposing private implementation details in this repository.
+Real checks require a Satoshkin API key. Billing is per successful check
+($0.55, debited from a prepaid key balance), the first real check per key is
+free, and cached repeat checks within 60 seconds are not charged. Keys are
+currently issued by [Satoshkin support](https://t.me/satoshkin_support);
+a self-service dashboard is in development. Mock mode is free and unlimited.
 
 ## Related Satoshkin Products
 
 - P2P bot: https://satoshkin.com
-- AML/KYT Telegram bot: planned
+- AML/KYT Telegram bot: https://t.me/SatoshkinKYTbot
 - AML/KYT web app: planned
 
 ## Use Cases
@@ -153,8 +188,8 @@ This MCP server lets any AI assistant call AML checks **natively**, with structu
 ## Roadmap
 
 - [x] v0.1: Scaffold with mock checks
-- [ ] v0.2: Real BitOK API integration via Satoshkin backend proxy (paid-only $49/mo + 7-day trial)
-- [ ] v0.3: Free tier rate-limiting + paid tier API key support
+- [x] v0.2: Real BitOK integration via Satoshkin backend (per-check billing, free first check, mock mode without key)
+- [ ] v0.3: Self-service key dashboard + top-up
 - [ ] v0.4: Additional chains (Solana, BNB, Polygon)
 - [ ] v0.5: Source-of-funds tagging (exchange/mixer/scam/sanctions)
 - [ ] v0.6: Cluster analysis and entity attribution

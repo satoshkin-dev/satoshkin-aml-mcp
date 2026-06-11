@@ -1,7 +1,7 @@
 {
   "name": "satoshkin-aml-mcp",
   "version": "0.2.0",
-  "description": "MCP server for AML/KYT crypto wallet screening.",
+  "description": "Satoshkin MCP server for AML/KYT crypto wallet screening \u2014 real risk scores (BitOK data) for Claude, ChatGPT and any MCP client.",
   "license": "MIT",
   "type": "module",
   "private": true,
@@ -32,5 +32,25 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"
-  }
+  },
+  "author": "Satoshkin (https://satoshkin.com)",
+  "homepage": "https://satoshkin.com/kyt",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/satoshkin-dev/satoshkin-aml-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/satoshkin-dev/satoshkin-aml-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "aml",
+    "kyt",
+    "crypto-compliance",
+    "wallet-screening",
+    "bitok",
+    "satoshkin",
+    "claude"
+  ]
 }

@@ -15,7 +15,7 @@ This package is not published to npm yet. Use the public GitHub repository throu
   "mcpServers": {
     "satoshkin-aml": {
       "command": "npx",
-      "args": ["-y", "github:skhmtp/satoshkin-aml-mcp"],
+      "args": ["-y", "github:satoshkin-dev/satoshkin-aml-mcp"],
       "env": {
         "SATOSHKIN_API_KEY": "sk_live_your_key_here"
       }
@@ -34,7 +34,7 @@ This package is not published to npm yet. Use the public GitHub repository throu
 ## Local Setup
 
 ```bash
-git clone https://github.com/skhmtp/satoshkin-aml-mcp.git
+git clone https://github.com/satoshkin-dev/satoshkin-aml-mcp.git
 cd satoshkin-aml-mcp
 npm install
 npm run build

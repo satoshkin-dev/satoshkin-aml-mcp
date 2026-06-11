@@ -1,6 +1,6 @@
 # Satoshkin AML/KYT MCP Server
 
-[![CI](https://github.com/skhmtp/satoshkin-aml-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/skhmtp/satoshkin-aml-mcp/actions)
+[![CI](https://github.com/satoshkin-dev/satoshkin-aml-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/satoshkin-dev/satoshkin-aml-mcp/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue.svg)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -92,7 +92,7 @@ Add this to your MCP settings:
   "mcpServers": {
     "satoshkin-aml": {
       "command": "npx",
-      "args": ["-y", "github:skhmtp/satoshkin-aml-mcp"],
+      "args": ["-y", "github:satoshkin-dev/satoshkin-aml-mcp"],
       "env": {
         "SATOSHKIN_API_KEY": "sk_live_your_key_here"
       }
@@ -119,7 +119,7 @@ For local development, use the built entrypoint:
 ## Local Development
 
 ```bash
-git clone https://github.com/skhmtp/satoshkin-aml-mcp.git
+git clone https://github.com/satoshkin-dev/satoshkin-aml-mcp.git
 cd satoshkin-aml-mcp
 npm install
 npm run build

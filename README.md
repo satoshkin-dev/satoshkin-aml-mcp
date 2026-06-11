@@ -33,7 +33,7 @@ Input:
 
 ```json
 {
-  "address": "TMockWalletAddress123",
+  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
   "chain": "BTC"
 }
 ```
@@ -69,7 +69,10 @@ Real output (with `SATOSHKIN_API_KEY`):
 
 Errors come back as structured `isError` payloads with machine-readable codes:
 `unauthorized`, `insufficient_balance`, `rate_limited`, `validation_error`,
-`bitok_upstream_error`, `bitok_timeout`, `upstream_unreachable`.
+`bitok_upstream_error`, `bitok_timeout`, `upstream_unreachable`,
+`invalid_response`, `internal_error`, and `http_<status>` (fallback when a
+backend error body has no `error` field). Every error payload also carries
+an `http_status` field.
 
 Results are informational risk indicators, not legal or compliance advice.
 
@@ -191,7 +194,7 @@ This MCP server lets any AI assistant call AML checks **natively**, with structu
 - [x] v0.2: Real BitOK integration via Satoshkin backend (per-check billing, free first check, mock mode without key)
 - [ ] v0.3: Self-service key dashboard + top-up
 - [ ] v0.4: Additional chains (Solana, BNB, Polygon)
-- [ ] v0.5: Source-of-funds tagging (exchange/mixer/scam/sanctions)
+- [ ] v0.5: Richer tag taxonomy and sanctions-specific flags
 - [ ] v0.6: Cluster analysis and entity attribution
 
 ## License

@@ -85,7 +85,16 @@ export async function runCheckWalletAmlTool(
   }
 }
 
-export function registerCheckWalletAmlTool(server: McpServer, provider: AmlProvider): void {
+export interface RegisterToolOptions {
+  /** Mock mode is genuinely read-only; real mode debits a prepaid balance. */
+  isMock?: boolean;
+}
+
+export function registerCheckWalletAmlTool(
+  server: McpServer,
+  provider: AmlProvider,
+  options: RegisterToolOptions = {}
+): void {
   server.registerTool(
     "check_wallet_aml",
     {
@@ -96,7 +105,10 @@ export function registerCheckWalletAmlTool(server: McpServer, provider: AmlProvi
         "backend). Without SATOSHKIN_API_KEY the tool runs in clearly-labeled mock mode.",
       inputSchema: checkWalletAmlInputSchema,
       annotations: {
-        readOnlyHint: true,
+        // Real checks debit ~$0.55 from a prepaid balance — a billable side
+        // effect, so the tool is read-only only in mock mode. openWorldHint
+        // is always true (it reaches an external service).
+        readOnlyHint: options.isMock === true,
         openWorldHint: true
       }
     },

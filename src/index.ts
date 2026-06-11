@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type SatoshkinConfig } from "./config.js";
@@ -25,7 +27,7 @@ export function createServer(config: SatoshkinConfig = loadConfig()): McpServer 
     version: "0.2.0"
   });
 
-  registerCheckWalletAmlTool(server, createProvider(config));
+  registerCheckWalletAmlTool(server, createProvider(config), { isMock: !config.apiKey });
 
   return server;
 }
@@ -36,7 +38,27 @@ async function main(): Promise<void> {
   await server.connect(transport);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * True when this module is the process entry point. A plain
+ * `import.meta.url === file://${process.argv[1]}` check fails when the server
+ * is launched through npm's .bin symlink (`npx`, the documented install path):
+ * Node realpaths the ESM main module, so import.meta.url is the resolved file
+ * while argv[1] is still the symlink. Compare against the realpath, and
+ * pathToFileURL handles Windows drive letters / URL-encoding.
+ */
+function isEntryPoint(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
   main().catch((error) => {
     console.error("Failed to start satoshkin-aml-mcp:", error);
     process.exit(1);

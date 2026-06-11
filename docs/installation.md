@@ -71,4 +71,4 @@ node dist/index.js
 
 ## Publishing
 
-This package is intentionally marked `"private": true` and is not configured for npm publishing or MCP registry submission in v0.1.0.
+This package is intentionally marked `"private": true` and is not yet configured for npm publishing.

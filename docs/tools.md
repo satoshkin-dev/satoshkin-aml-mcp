@@ -53,12 +53,19 @@ Failures are returned as structured `isError` tool results:
 | `bitok_upstream_error` | BitOK returned an upstream failure |
 | `bitok_timeout` | Screening did not finish in time — retry shortly |
 | `upstream_unreachable` | Network failure reaching the Satoshkin backend |
+| `invalid_response` | Backend returned a non-JSON or unexpected 200 payload |
+| `invalid_api_key` | `SATOSHKIN_API_KEY` is malformed (whitespace/control chars) |
+| `internal_error` | Unexpected client-side failure |
+| `http_<status>` | Fallback when a backend error body has no `error` field |
+
+Every error payload also includes an `http_status` field (when the failure
+carried an HTTP status).
 
 ### Output (mock mode)
 
 ```json
 {
-  "address": "TMockWalletAddress123",
+  "address": "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH",
   "chain": "TRON",
   "riskScore": "unknown",
   "status": "mock",

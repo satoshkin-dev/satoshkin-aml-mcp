@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
+import { createProvider } from "../src/index.js";
 import { BitOkProviderPlaceholder } from "../src/providers/bitok.js";
 import { SatoshkinBackendProvider } from "../src/providers/satoshkin.js";
 import {
@@ -10,7 +11,9 @@ import {
 import { AmlCheckError, type CheckWalletAmlSuccess } from "../src/types.js";
 
 const BTC_ADDRESS = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+const BTC_BECH32 = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq";
 const ETH_ADDRESS = "0x52908400098527886E0F7030069857D2E4169EE7";
+const ETH_LOWER = "0x52908400098527886e0f7030069857d2e4169ee7";
 const TRON_ADDRESS = "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH";
 
 const SUCCESS_BODY: CheckWalletAmlSuccess = {
@@ -43,6 +46,7 @@ function fetchResponse(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: new Headers(),
     json: async () => body
   } as unknown as Response;
 }
@@ -69,12 +73,52 @@ describe("config", () => {
     expect(config.apiKey).toBe("sk_live_x");
     expect(config.timeoutMs).toBe(1000);
   });
+
+  it("falls back to defaults on empty / invalid env values", () => {
+    const config = loadConfig({
+      SATOSHKIN_API_BASE_URL: "   ",
+      SATOSHKIN_TIMEOUT_MS: "abc"
+    } as unknown as NodeJS.ProcessEnv);
+    expect(config.baseUrl).toBe("https://satoshkin.com");
+    expect(config.timeoutMs).toBe(30_000);
+    expect(loadConfig({ SATOSHKIN_TIMEOUT_MS: "-5" } as unknown as NodeJS.ProcessEnv).timeoutMs).toBe(
+      30_000
+    );
+  });
+
+  it("rejects a key with whitespace/control chars without echoing it", () => {
+    let thrown: AmlCheckError | null = null;
+    try {
+      loadConfig({ SATOSHKIN_API_KEY: "sk_live_AAA\nBBB" } as unknown as NodeJS.ProcessEnv);
+    } catch (error) {
+      thrown = error as AmlCheckError;
+    }
+    expect(thrown).toBeInstanceOf(AmlCheckError);
+    expect(thrown?.code).toBe("invalid_api_key");
+    expect(thrown?.message).not.toContain("BBB");
+  });
+});
+
+describe("createProvider", () => {
+  it("selects the backend provider when a key is set", () => {
+    expect(createProvider(makeConfig())).toBeInstanceOf(SatoshkinBackendProvider);
+  });
+
+  it("selects the mock provider and warns on stderr when no key is set", () => {
+    const warn = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const provider = createProvider(makeConfig({ apiKey: null }));
+    expect(provider).toBeInstanceOf(BitOkProviderPlaceholder);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("MOCK mode"));
+    warn.mockRestore();
+  });
 });
 
 describe("input schema", () => {
   it("accepts valid addresses per chain", () => {
     expect(() => checkWalletAmlInputSchema.parse({ address: BTC_ADDRESS, chain: "BTC" })).not.toThrow();
+    expect(() => checkWalletAmlInputSchema.parse({ address: BTC_BECH32, chain: "BTC" })).not.toThrow();
     expect(() => checkWalletAmlInputSchema.parse({ address: ETH_ADDRESS, chain: "ETH" })).not.toThrow();
+    expect(() => checkWalletAmlInputSchema.parse({ address: ETH_LOWER, chain: "ETH" })).not.toThrow();
     expect(() => checkWalletAmlInputSchema.parse({ address: TRON_ADDRESS, chain: "TRON" })).not.toThrow();
     expect(() =>
       checkWalletAmlInputSchema.parse({ address: ETH_ADDRESS, chain: "USDT-ERC20" })
@@ -164,12 +208,69 @@ describe("SatoshkinBackendProvider", () => {
     expect(failure?.httpStatus).toBe(status);
   });
 
-  it("maps network failure to upstream_unreachable", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+  it("maps network failure to upstream_unreachable and appends the cause", async () => {
+    const err = Object.assign(new TypeError("fetch failed"), { cause: new Error("ENOTFOUND") });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(err));
 
     const provider = new SatoshkinBackendProvider(makeConfig());
+    const failure = await provider
+      .checkWallet({ address: BTC_ADDRESS, chain: "BTC" })
+      .then(() => null)
+      .catch((e: AmlCheckError) => e);
+    expect(failure?.code).toBe("upstream_unreachable");
+    expect(failure?.message).toContain("ENOTFOUND");
+  });
+
+  it("maps a client-side timeout (TimeoutError) to bitok_timeout", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"))
+    );
+    const provider = new SatoshkinBackendProvider(makeConfig());
     await expect(provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).rejects.toMatchObject({
-      code: "upstream_unreachable"
+      code: "bitok_timeout"
+    });
+  });
+
+  it("never leaks the API key into an error message", async () => {
+    const err = Object.assign(new TypeError('"Bearer sk_test_abc123" is an invalid header value'), {});
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(err));
+    const provider = new SatoshkinBackendProvider(makeConfig());
+    const failure = await provider
+      .checkWallet({ address: BTC_ADDRESS, chain: "BTC" })
+      .then(() => null)
+      .catch((e: AmlCheckError) => e);
+    expect(failure?.message).not.toContain("sk_test_abc123");
+    expect(failure?.message).toContain("[redacted]");
+  });
+
+  it.each([
+    ["empty object", {}],
+    ["null", null],
+    ["string", "maintenance"],
+    ["missing risk_score", { ...SUCCESS_BODY, risk_score: undefined }],
+    ["bad risk_level", { ...SUCCESS_BODY, risk_level: "extreme" }]
+  ])("rejects a malformed 200 body (%s) as invalid_response", async (_label, body) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(fetchResponse(200, body)));
+    const provider = new SatoshkinBackendProvider(makeConfig());
+    await expect(provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).rejects.toMatchObject({
+      code: "invalid_response"
+    });
+  });
+
+  it("maps a non-JSON 200 body to invalid_response", async () => {
+    const bad = {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON");
+      }
+    } as unknown as Response;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(bad));
+    const provider = new SatoshkinBackendProvider(makeConfig());
+    await expect(provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).rejects.toMatchObject({
+      code: "invalid_response"
     });
   });
 

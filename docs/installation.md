@@ -15,16 +15,26 @@ This package is not published to npm yet. Use the public GitHub repository throu
   "mcpServers": {
     "satoshkin-aml": {
       "command": "npx",
-      "args": ["-y", "github:skhmtp/satoshkin-aml-mcp"]
+      "args": ["-y", "github:satoshkin-dev/satoshkin-aml-mcp"],
+      "env": {
+        "SATOSHKIN_API_KEY": "sk_live_your_key_here"
+      }
     }
   }
 }
 ```
 
+## Configuration
+
+- `SATOSHKIN_API_KEY` — API key issued by Satoshkin (`sk_live_*` / `sk_test_*`).
+  Without it the server runs in clearly-labeled mock mode.
+- `SATOSHKIN_API_BASE_URL` — backend base URL, default `https://satoshkin.com`.
+- `SATOSHKIN_TIMEOUT_MS` — request timeout, default `30000`.
+
 ## Local Setup
 
 ```bash
-git clone https://github.com/skhmtp/satoshkin-aml-mcp.git
+git clone https://github.com/satoshkin-dev/satoshkin-aml-mcp.git
 cd satoshkin-aml-mcp
 npm install
 npm run build
@@ -61,4 +71,4 @@ node dist/index.js
 
 ## Publishing
 
-This package is intentionally marked `"private": true` and is not configured for npm publishing or MCP registry submission in v0.1.0.
+This package is intentionally marked `"private": true` and is not yet configured for npm publishing.

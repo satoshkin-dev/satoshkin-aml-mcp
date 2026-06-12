@@ -86,7 +86,7 @@ Results are informational risk indicators, not legal or compliance advice.
 
 ## Claude Desktop / Claude Code
 
-This package is not published to npm yet. Use the public GitHub repository through `npx`.
+The package is published on npm as [`satoshkin-aml-mcp`](https://www.npmjs.com/package/satoshkin-aml-mcp) and listed in the MCP registry as `io.github.satoshkin-dev/satoshkin-aml-mcp`.
 
 Add this to your MCP settings:
 
@@ -95,7 +95,7 @@ Add this to your MCP settings:
   "mcpServers": {
     "satoshkin-aml": {
       "command": "npx",
-      "args": ["-y", "github:satoshkin-dev/satoshkin-aml-mcp"],
+      "args": ["-y", "satoshkin-aml-mcp"],
       "env": {
         "SATOSHKIN_API_KEY": "sk_live_your_key_here"
       }

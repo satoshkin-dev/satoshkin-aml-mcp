@@ -8,14 +8,14 @@
 
 ## Claude Desktop / Claude Code
 
-This package is not published to npm yet. Use the public GitHub repository through `npx`:
+The package is published on npm as [`satoshkin-aml-mcp`](https://www.npmjs.com/package/satoshkin-aml-mcp) and listed in the MCP registry as `io.github.satoshkin-dev/satoshkin-aml-mcp`. Install it through `npx`:
 
 ```json
 {
   "mcpServers": {
     "satoshkin-aml": {
       "command": "npx",
-      "args": ["-y", "github:satoshkin-dev/satoshkin-aml-mcp"],
+      "args": ["-y", "satoshkin-aml-mcp"],
       "env": {
         "SATOSHKIN_API_KEY": "sk_live_your_key_here"
       }
@@ -71,4 +71,4 @@ node dist/index.js
 
 ## Publishing
 
-This package is intentionally marked `"private": true` and is not yet configured for npm publishing.
+Releases are published to npm as `satoshkin-aml-mcp` and registered in the MCP registry under `io.github.satoshkin-dev/satoshkin-aml-mcp` (via the `mcpName` field in `package.json` and `server.json`).

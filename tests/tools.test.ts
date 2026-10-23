@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { loadConfig } from "../src/config.js";
-import { createProvider } from "../src/index.js";
+import { createProvider, createServer } from "../src/index.js";
 import { BitOkProviderPlaceholder } from "../src/providers/bitok.js";
 import { SatoshkinBackendProvider } from "../src/providers/satoshkin.js";
 import {
@@ -8,7 +10,7 @@ import {
   checkWalletAmlInputSchema,
   runCheckWalletAmlTool
 } from "../src/tools/check_wallet_aml.js";
-import { AmlCheckError, type CheckWalletAmlSuccess } from "../src/types.js";
+import { AmlCheckError, type CheckWalletAmlSuccess, type SupportedChain } from "../src/types.js";
 
 const BTC_ADDRESS = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
 const BTC_BECH32 = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq";
@@ -31,6 +33,18 @@ const SUCCESS_BODY: CheckWalletAmlSuccess = {
   cache_hit: false,
   rate_limit: { remaining: 999, resets_at: "2026-06-10T01:00:00.000Z" },
   balance: { charged_usd: "0.55", after_usd: "9.45" }
+};
+
+const V2_SUCCESS_BODY: CheckWalletAmlSuccess = {
+  ...SUCCESS_BODY,
+  first_activity: null,
+  last_activity: null,
+  total_volume_in_usd: "unavailable",
+  total_volume_out_usd: "unavailable",
+  report_schema_version: 2,
+  limitations: [
+    "Full-wallet activity dates and incoming/outgoing USD totals are unavailable. Risk-event data is not wallet history."
+  ]
 };
 
 function makeConfig(overrides: Partial<ReturnType<typeof loadConfig>> = {}) {
@@ -175,6 +189,35 @@ describe("SatoshkinBackendProvider", () => {
     expect(JSON.parse(init.body)).toEqual({ address: BTC_ADDRESS, chain: "BTC" });
   });
 
+  it("preserves the v2 contract, limitations and unavailable optional history", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(fetchResponse(200, V2_SUCCESS_BODY)));
+    const provider = new SatoshkinBackendProvider(makeConfig());
+
+    expect(await provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).toEqual(
+      V2_SUCCESS_BODY
+    );
+  });
+
+  it.each([0, 100])("accepts a valid boundary risk score of %s without v2 metadata", async (score) => {
+    const body = { ...SUCCESS_BODY, risk_score: score, risk_level: score === 0 ? "low" : "high" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(fetchResponse(200, body)));
+    const provider = new SatoshkinBackendProvider(makeConfig());
+
+    expect(await provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).toEqual(body);
+  });
+
+  it("preserves the backend's free cache-hit billing information", async () => {
+    const body = {
+      ...V2_SUCCESS_BODY,
+      cache_hit: true,
+      balance: { charged_usd: "0.00", after_usd: "9.45" }
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(fetchResponse(200, body)));
+    const provider = new SatoshkinBackendProvider(makeConfig());
+
+    expect(await provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).toEqual(body);
+  });
+
   it.each([
     [401, "unauthorized", { error: "unauthorized", message: "Invalid or expired API key." }],
     [
@@ -221,15 +264,21 @@ describe("SatoshkinBackendProvider", () => {
     expect(failure?.message).toContain("ENOTFOUND");
   });
 
-  it("maps a client-side timeout (TimeoutError) to bitok_timeout", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"))
-    );
+  it.each(["request", "response body"])("reports an ambiguous %s timeout without automatically retrying", async (stage) => {
+    const timeout = new DOMException("The operation timed out.", "TimeoutError");
+    const fetchMock = stage === "request"
+      ? vi.fn().mockRejectedValue(timeout)
+      : vi.fn().mockResolvedValue({
+          ...fetchResponse(200, V2_SUCCESS_BODY),
+          json: async () => { throw timeout; }
+        });
+    vi.stubGlobal("fetch", fetchMock);
     const provider = new SatoshkinBackendProvider(makeConfig());
     await expect(provider.checkWallet({ address: BTC_ADDRESS, chain: "BTC" })).rejects.toMatchObject({
-      code: "bitok_timeout"
+      code: "bitok_timeout",
+      message: expect.stringContaining("Completion and charge status are unknown")
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("never leaks the API key into an error message", async () => {
@@ -249,6 +298,14 @@ describe("SatoshkinBackendProvider", () => {
     ["null", null],
     ["string", "maintenance"],
     ["missing risk_score", { ...SUCCESS_BODY, risk_score: undefined }],
+    ["null risk_score", { ...SUCCESS_BODY, risk_score: null }],
+    ["string risk_score", { ...SUCCESS_BODY, risk_score: "17" }],
+    ["NaN risk_score", { ...SUCCESS_BODY, risk_score: NaN }],
+    ["infinite risk_score", { ...SUCCESS_BODY, risk_score: Infinity }],
+    ["negative infinite risk_score", { ...SUCCESS_BODY, risk_score: -Infinity }],
+    ["negative risk_score", { ...SUCCESS_BODY, risk_score: -0.1 }],
+    ["risk_score above 100", { ...SUCCESS_BODY, risk_score: 100.1 }],
+    ["missing risk_level", { ...SUCCESS_BODY, risk_level: undefined }],
     ["bad risk_level", { ...SUCCESS_BODY, risk_level: "extreme" }]
   ])("rejects a malformed 200 body (%s) as invalid_response", async (_label, body) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(fetchResponse(200, body)));
@@ -311,5 +368,69 @@ describe("runCheckWalletAmlTool", () => {
     expect(payload.error).toBe("insufficient_balance");
     expect(payload.required_usd).toBe("0.55");
     expect(payload.http_status).toBe(402);
+  });
+});
+
+describe("MCP result contract", () => {
+  async function withClient(run: (client: Client) => Promise<void>): Promise<void> {
+    const server = createServer(makeConfig());
+    const client = new Client({ name: "contract-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      await run(client);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  }
+
+  it.each<[SupportedChain, string]>([
+    ["BTC", BTC_ADDRESS],
+    ["ETH", ETH_ADDRESS],
+    ["TRON", TRON_ADDRESS],
+    ["USDT-ERC20", ETH_ADDRESS],
+    ["USDT-TRC20", TRON_ADDRESS]
+  ])("returns v2 limitations without inventing history for %s", async (chain, address) => {
+    const body = { ...V2_SUCCESS_BODY, chain, address };
+    const fetchMock = vi.fn().mockResolvedValue(fetchResponse(200, body));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await withClient(async (client) => {
+      const { tools } = await client.listTools();
+      expect(tools).toHaveLength(1);
+      expect(tools[0].name).toBe("check_wallet_aml");
+      expect(tools[0].annotations?.readOnlyHint).toBe(false);
+
+      const result = await client.callTool({ name: "check_wallet_aml", arguments: { address, chain } });
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{ type: "text", text: JSON.stringify(body, null, 2) }]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it.each([
+    ["missing core assessment", 502, { error: "bitok_upstream_error", message: "Risk score unavailable." }],
+    ["incomplete assessment", 502, { error: "bitok_upstream_error", message: "Risk assessment incomplete." }],
+    ["invalid successful score", 200, { ...V2_SUCCESS_BODY, risk_score: -1 }]
+  ])("surfaces %s as a tool error with no success verdict or automatic retry", async (_label, status, body) => {
+    const fetchMock = vi.fn().mockResolvedValue(fetchResponse(status, body));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await withClient(async (client) => {
+      const result = await client.callTool({
+        name: "check_wallet_aml",
+        arguments: { address: BTC_ADDRESS, chain: "BTC" }
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      const payload = JSON.parse(content[0].text);
+      expect(payload.error).toBe(status === 502 ? "bitok_upstream_error" : "invalid_response");
+      expect(payload.http_status).toBe(status);
+      expect(payload).not.toHaveProperty("risk_score");
+      expect(payload).not.toHaveProperty("risk_level");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

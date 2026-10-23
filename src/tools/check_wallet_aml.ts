@@ -101,11 +101,14 @@ export function registerCheckWalletAmlTool(
       title: "Check Wallet AML",
       description:
         "Check a crypto wallet address for AML/KYT risk: risk score 0-100, risk level, " +
-        "source-of-funds tags, activity dates and volumes (BitOK data via the Satoshkin " +
-        "backend). Without SATOSHKIN_API_KEY the tool runs in clearly-labeled mock mode.",
+        "and risk tags (BitOK data via the Satoshkin backend). Full-wallet activity dates " +
+        "and incoming/outgoing volumes are unavailable; preserve returned limitations. " +
+        "A successful fresh check costs USD 0.55, including the first; backend-confirmed " +
+        "cache hits are free, but repeat requests are not guaranteed cache hits. " +
+        "Without SATOSHKIN_API_KEY the tool runs in clearly-labeled mock mode.",
       inputSchema: checkWalletAmlInputSchema,
       annotations: {
-        // Real checks debit ~$0.55 from a prepaid balance — a billable side
+        // Fresh real checks debit $0.55 from a prepaid balance — a billable side
         // effect, so the tool is read-only only in mock mode. openWorldHint
         // is always true (it reaches an external service).
         readOnlyHint: options.isMock === true,

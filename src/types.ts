@@ -13,10 +13,15 @@ export interface CheckWalletAmlSuccess {
   risk_score: number;
   risk_level: "low" | "medium" | "high";
   tags: string[];
+  /** Null in report schema v2: risk-event dates are not full-wallet history. */
   first_activity: string | null;
   last_activity: string | null;
+  /** "unavailable" in v2; never interpret missing volume as zero. */
   total_volume_in_usd: string;
   total_volume_out_usd: string;
+  /** Additive backend metadata; absent on legacy responses during rollout. */
+  report_schema_version?: number;
+  limitations?: string[];
   source: "bitok";
   cache_hit: boolean;
   rate_limit?: { remaining: number; resets_at: string };

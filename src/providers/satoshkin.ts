@@ -27,7 +27,7 @@ const successSchema = z
     address: z.string(),
     chain: z.string(),
     checked_at: z.string(),
-    risk_score: z.number(),
+    risk_score: z.number().min(0).max(100),
     risk_level: z.enum(["low", "medium", "high"]),
     tags: z.array(z.string()),
     first_activity: z.string().nullable(),
@@ -85,7 +85,7 @@ export class SatoshkinBackendProvider implements AmlProvider {
       if (this.isAbort(error)) {
         throw new AmlCheckError(
           "bitok_timeout",
-          `AML check timed out after ${this.config.timeoutMs}ms. Screening can take longer for new addresses — retry in a minute.`
+          `AML check timed out after ${this.config.timeoutMs}ms. Completion and charge status are unknown. Check billing history or contact support before retrying; a new request may be charged.`
         );
       }
       const reason = error instanceof Error ? error.message : String(error);
@@ -113,7 +113,7 @@ export class SatoshkinBackendProvider implements AmlProvider {
       if (this.isAbort(error)) {
         throw new AmlCheckError(
           "bitok_timeout",
-          `AML check timed out after ${this.config.timeoutMs}ms while reading the response — retry in a minute.`
+          `AML check timed out after ${this.config.timeoutMs}ms while reading the response. Completion and charge status are unknown. Check billing history or contact support before retrying; a new request may be charged.`
         );
       }
       throw new AmlCheckError(

@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.satoshkin-dev/satoshkin-aml-mcp",
-  "description": "AML/KYT crypto wallet risk screening (BitOK data) for Claude, ChatGPT and any MCP client.",
+  "description": "Local stdio MCP server for AML/KYT wallet risk screening with BitOK data via Satoshkin.",
   "version": "0.2.0",
   "repository": {
     "url": "https://github.com/satoshkin-dev/satoshkin-aml-mcp",

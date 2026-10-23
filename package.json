@@ -2,7 +2,7 @@
   "name": "satoshkin-aml-mcp",
   "mcpName": "io.github.satoshkin-dev/satoshkin-aml-mcp",
   "version": "0.2.0",
-  "description": "Satoshkin MCP server for AML/KYT crypto wallet screening \u2014 real risk scores (BitOK data) for Claude, ChatGPT and any MCP client.",
+  "description": "Local stdio MCP server for AML/KYT crypto wallet risk screening with BitOK data via Satoshkin.",
   "license": "MIT",
   "type": "module",
   "private": false,
